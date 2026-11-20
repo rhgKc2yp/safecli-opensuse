@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Verify Tumbleweed update/patch checks fail closed without needing Zypper or a network.
+# Verify Tumbleweed repository updates fail closed without Zypper or a network.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 installer="$PWD/scripts/install-cli-toolchain.sh"
@@ -22,7 +22,6 @@ case "${2:-}" in
   refresh) exit "${MOCK_REFRESH_STATUS:-0}" ;;
   dup) exit "${MOCK_DUP_STATUS:-0}" ;;
   install) exit "${MOCK_INSTALL_STATUS:-0}" ;;
-  patch-check) exit "${MOCK_PATCH_STATUS:-0}" ;;
   clean) exit "${MOCK_CLEAN_STATUS:-0}" ;;
   *) exit 91 ;;
 esac
@@ -55,15 +54,17 @@ export PATH="$test_dir/bin:$PATH"
 export MOCK_ZYPPER_CALLS="$test_dir/zypper.calls"
 
 bash "$installer" > "$test_dir/clean.log"
-grep -Fq 'openSUSE patch check passed.' "$test_dir/clean.log"
 grep -Fqx -- '--non-interactive addrepo https://download.opensuse.org/repositories/shells:fish/openSUSE_Tumbleweed/shells:fish.repo' "$MOCK_ZYPPER_CALLS"
 grep -Fqx -- '--non-interactive --gpg-auto-import-keys refresh' "$MOCK_ZYPPER_CALLS"
 grep -Fqx -- '--non-interactive dup --no-recommends' "$MOCK_ZYPPER_CALLS"
 grep -Fq -- '--non-interactive install --no-recommends bash nano fish' "$MOCK_ZYPPER_CALLS"
 grep -Fq -- 'nodejs26 npm26 nodejs26-devel corepack24' "$MOCK_ZYPPER_CALLS"
 grep -Fq -- 'python3 python3-pip python3-devel python3-virtualenv python3-pipx python3-uv' "$MOCK_ZYPPER_CALLS"
-grep -Fqx -- '--non-interactive patch-check' "$MOCK_ZYPPER_CALLS"
 grep -Fqx -- '--non-interactive clean --all' "$MOCK_ZYPPER_CALLS"
+if grep -Fq -- '--non-interactive patch-check' "$MOCK_ZYPPER_CALLS"; then
+  echo 'ERROR: the Tumbleweed installer must not use patch-check.' >&2
+  exit 1
+fi
 
 # arm64 must not add an OBS repository without aarch64 packages, and must
 # continue to accept the stock Tumbleweed fish version.
@@ -80,11 +81,8 @@ fi
 bash "$installer" libusb-1_0-0 libusb-1_0-devel > /dev/null
 grep -Fq -- 'libusb-1_0-0 libusb-1_0-devel' "$MOCK_ZYPPER_CALLS"
 
-for failure_case in patch_100 patch_101 query_error addrepo_error key_refresh_error refresh_error dup_error install_error clean_error wrong_node wrong_npm wrong_fish old_obs_fish unsupported_arch; do
+for failure_case in addrepo_error key_refresh_error refresh_error dup_error install_error clean_error wrong_node wrong_npm wrong_fish old_obs_fish unsupported_arch; do
   case "$failure_case" in
-    patch_100) failure_env=(MOCK_PATCH_STATUS=100) ;;
-    patch_101) failure_env=(MOCK_PATCH_STATUS=101) ;;
-    query_error) failure_env=(MOCK_PATCH_STATUS=42) ;;
     addrepo_error) failure_env=(MOCK_ADDREPO_STATUS=42) ;;
     key_refresh_error) failure_env=(MOCK_KEY_REFRESH_STATUS=42) ;;
     refresh_error) failure_env=(MOCK_RPM_ARCH=aarch64 MOCK_REFRESH_STATUS=42) ;;
@@ -102,13 +100,10 @@ for failure_case in patch_100 patch_101 query_error addrepo_error key_refresh_er
     exit 1
   fi
 done
-grep -Fq 'patch check returned 100' "$test_dir/patch_100.log"
-grep -Fq 'patch check returned 101' "$test_dir/patch_101.log"
-grep -Fq 'patch check returned 42' "$test_dir/query_error.log"
 grep -Fq 'Expected Node.js 26' "$test_dir/wrong_node.log"
 grep -Fq 'Expected openSUSE npm 11' "$test_dir/wrong_npm.log"
 grep -Fq 'Expected the openSUSE-packaged fish' "$test_dir/wrong_fish.log"
 grep -Fq 'Expected OBS fish 4.9.3 or newer' "$test_dir/old_obs_fish.log"
 grep -Fq 'Unsupported architecture for safecli fish: i686' "$test_dir/unsupported_arch.log"
 
-echo 'Tumbleweed x86_64 OBS fish, aarch64 fallback, patch and failure cases passed.'
+echo 'Tumbleweed x86_64 OBS fish, aarch64 fallback, and update failure cases passed.'

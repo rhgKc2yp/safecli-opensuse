@@ -14,8 +14,11 @@ grep -Fq 'zypper --non-interactive addrepo' scripts/install-cli-toolchain.sh
 grep -Fq 'zypper --non-interactive --gpg-auto-import-keys refresh' scripts/install-cli-toolchain.sh
 grep -Fq 'zypper --non-interactive dup --no-recommends' scripts/install-cli-toolchain.sh
 grep -Fq 'zypper --non-interactive install --no-recommends "${packages[@]}" "$@"' scripts/install-cli-toolchain.sh
-grep -Fq 'zypper --non-interactive patch-check' scripts/install-cli-toolchain.sh
 grep -Fq 'zypper --non-interactive clean --all' scripts/install-cli-toolchain.sh
+if grep -Fq 'zypper --non-interactive patch-check' scripts/install-cli-toolchain.sh; then
+  echo 'Do not use the Tumbleweed-inapplicable patch-check as a security gate.' >&2
+  exit 1
+fi
 
 wf=.github/workflows/publish-ghcr.yml
 grep -Fq -- "- cron: '23 4 */3 * *'" "$wf"

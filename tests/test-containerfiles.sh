@@ -47,8 +47,11 @@ grep -Fq 'zypper --non-interactive --gpg-auto-import-keys refresh' "$toolchain"
 grep -Fq 'fish_arch=$(rpm --eval' "$toolchain"
 grep -Fq 'Expected OBS fish 4.9.3 or newer' "$toolchain"
 grep -Fq 'zypper --non-interactive install --no-recommends "${packages[@]}" "$@"' "$toolchain"
-grep -Fq 'zypper --non-interactive patch-check' "$toolchain"
 grep -Fq 'ln -s /usr/bin/python3 /usr/local/bin/python' "$toolchain"
+if grep -Fq 'zypper --non-interactive patch-check' "$toolchain"; then
+  echo 'Tumbleweed does not provide the patch metadata needed for this gate.' >&2
+  exit 1
+fi
 if grep -Eq 'npm install --global|npm@12' "$toolchain"; then
   echo 'npm must remain openSUSE-packaged; do not bootstrap from npm registry.' >&2
   exit 1

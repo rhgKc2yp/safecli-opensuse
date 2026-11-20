@@ -95,19 +95,6 @@ esac
 zypper --non-interactive dup --no-recommends
 zypper --non-interactive install --no-recommends "${packages[@]}" "$@"
 
-# Check any applicable openSUSE patch metadata as well. A nonzero status
-# (including zypper's 100/101 for outstanding patches) fails the build.
-# Tumbleweed's rolling snapshot is the primary update channel; this check is
-# not a claim that every CVE has a zypper patch advisory.
-echo 'Checking for pending openSUSE patches...'
-if zypper --non-interactive patch-check; then
-  echo 'openSUSE patch check passed.'
-else
-  status=$?
-  echo "ERROR: openSUSE patch check returned $status (pending patches or query failure)." >&2
-  exit 1
-fi
-
 zypper --non-interactive clean --all
 
 # Match Fedora's `python` -> `python3` CLI without installing a foreign RPM.
