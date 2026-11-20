@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT
+# USB profile: userspace USB inspection/tools only. Device exposure is chosen
+# explicitly at runtime with USB_DEVICE, never baked into the image.
+FROM docker.io/opensuse/tumbleweed:latest
+
+COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh
+RUN bash /tmp/install-cli-toolchain.sh \
+        usbutils \
+        libusb-1_0-0 \
+        libusb-1_0-devel \
+    && rm -f /tmp/install-cli-toolchain.sh \
+    && mkdir -p /work
+ENV SHELL=/usr/bin/fish \
+    NPM_CONFIG_PREFIX=/work/.npm-global \
+    CARGO_HOME=/work/.cargo \
+    GOPATH=/work/go \
+    GOBIN=/work/go/bin \
+    PATH="${PATH}:/work/.npm-global/bin:/work/.local/bin:/work/.cargo/bin:/work/go/bin"
+WORKDIR /work
+CMD ["/usr/bin/fish"]
+LABEL org.opencontainers.image.title="safecli-usb" \
+      org.opencontainers.image.description="CLI toolchains and USB tools for the rootless Podman USB profile"

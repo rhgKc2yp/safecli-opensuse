@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+# Nested namespace-based sandbox profile. No privileged mode or host sockets.
+# Actual nested sandbox support depends on host kernel/LSM configuration.
+FROM docker.io/opensuse/tumbleweed:latest
+
+COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh
+RUN bash /tmp/install-cli-toolchain.sh \
+        bubblewrap \
+    && rm -f /tmp/install-cli-toolchain.sh \
+    && mkdir -p /work
+ENV SHELL=/usr/bin/fish \
+    NPM_CONFIG_PREFIX=/work/.npm-global \
+    CARGO_HOME=/work/.cargo \
+    GOPATH=/work/go \
+    GOBIN=/work/go/bin \
+    PATH="${PATH}:/work/.npm-global/bin:/work/.local/bin:/work/.cargo/bin:/work/go/bin"
+WORKDIR /work
+CMD ["/usr/bin/fish"]
+LABEL org.opencontainers.image.title="safecli-nested" \
+      org.opencontainers.image.description="CLI toolchains and Bubblewrap for the rootless Podman nested profile"

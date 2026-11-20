@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+# General-purpose CLI toolchain for the strict profile.
+# Runtime isolation is enforced by safecli.sh, not by this Containerfile.
+FROM docker.io/opensuse/tumbleweed:latest
+
+COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh
+RUN bash /tmp/install-cli-toolchain.sh \
+    && rm -f /tmp/install-cli-toolchain.sh \
+    && mkdir -p /work
+ENV SHELL=/usr/bin/fish \
+    NPM_CONFIG_PREFIX=/work/.npm-global \
+    CARGO_HOME=/work/.cargo \
+    GOPATH=/work/go \
+    GOBIN=/work/go/bin \
+    PATH="${PATH}:/work/.npm-global/bin:/work/.local/bin:/work/.cargo/bin:/work/go/bin"
+WORKDIR /work
+CMD ["/usr/bin/fish"]
+LABEL org.opencontainers.image.title="safecli-strict" \
+      org.opencontainers.image.description="CLI toolchains for the rootless Podman strict profile"
