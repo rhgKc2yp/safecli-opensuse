@@ -32,8 +32,8 @@ fi
 
 # For a single multi-platform image index, imagetools creates a carbon copy.
 # Check the result to avoid silently promoting a modified digest.
-mkdir -p .publish
-metadata=".publish/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+metadata=$(mktemp --suffix=.json)
+trap 'rm -f "$metadata"' EXIT
 docker buildx imagetools create \
   "${tags[@]}" \
   --metadata-file "$metadata" \

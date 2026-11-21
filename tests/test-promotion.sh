@@ -31,11 +31,15 @@ export DIGEST="sha256:$(printf 'f%.0s' {1..64})"
 export GITHUB_RUN_ID=123 GITHUB_RUN_ATTEMPT=2
 export GITHUB_REF=refs/heads/main
 bash scripts/promote-image.sh >/dev/null
+metadata=$(awk 'previous == "--metadata-file" {print; exit} {previous=$0}' "$MOCK_ARGS")
+[[ -n "$metadata" && ! -e "$metadata" ]]
 grep -Fqx 'ghcr.io/example/repo-strict:latest' "$MOCK_ARGS"
 grep -Fqx 'ghcr.io/example/repo-strict:build-123-2' "$MOCK_ARGS"
 if grep -Fq ':v1.2.3' "$MOCK_ARGS"; then exit 1; fi
 export GITHUB_REF=refs/tags/v1.2.3
 bash scripts/promote-image.sh >/dev/null
+metadata=$(awk 'previous == "--metadata-file" {print; exit} {previous=$0}' "$MOCK_ARGS")
+[[ -n "$metadata" && ! -e "$metadata" ]]
 grep -Fqx 'ghcr.io/example/repo-strict:v1.2.3' "$MOCK_ARGS"
 if grep -Fq ':latest' "$MOCK_ARGS"; then exit 1; fi
 export GITHUB_REF=refs/heads/untrusted

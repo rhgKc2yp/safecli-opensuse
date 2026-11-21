@@ -24,10 +24,14 @@ wf=.github/workflows/publish-ghcr.yml
 grep -Fq -- "- cron: '23 4 */3 * *'" "$wf"
 grep -Fq 'pull: true' "$wf"
 grep -Fq 'no-cache: true' "$wf"
-grep -Fq 'uses: actions/checkout@v7' "$wf"
-grep -Fq 'uses: actions/upload-artifact@v7' "$wf"
-grep -Fq 'uses: actions/download-artifact@v8' "$wf"
-grep -Fq 'uses: actions/attest@v4' "$wf"
+for action in checkout upload-artifact download-artifact attest; do
+  grep -Eq "uses: actions/${action}@[0-9a-f]{40}([[:space:]]+#.*)?$" "$wf"
+done
+if grep -E '^[[:space:]]*(-[[:space:]]*)?uses:' .github/workflows/*.yml | \
+   grep -Ev '@[0-9a-f]{40}([[:space:]]+#.*)?$'; then
+  echo 'ERROR: All GitHub Actions must use full 40-character commit SHAs.' >&2
+  exit 1
+fi
 grep -Fq 'sbom: true' "$wf"
 grep -Fq 'run: bash scripts/generate-sboms.sh' "$wf"
 grep -Fq 'subject-path: |' "$wf"

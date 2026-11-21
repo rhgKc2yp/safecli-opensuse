@@ -26,18 +26,41 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Test shell and publisher rules
         run: |
           bash -n safecli.sh scripts/promote-image.sh scripts/install-cli-toolchain.sh scripts/generate-sboms.sh
           bash tests/test-containerfiles.sh
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
           bash tests/test-security-updates.sh
           bash tests/test-zypper-updates.sh
           bash tests/test-sbom-generation.sh
           bash tests/test-launcher.sh
           bash tests/test-promotion.sh
+
+      - name: Check Bash scripts with ShellCheck
+        run: shellcheck --severity=warning --exclude=SC2054,SC2155 safecli.sh scripts/*.sh tests/*.sh
+
+      - name: Check workflows with actionlint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1.7.12 --repo rhysd/actionlint \
+            --pattern 'actionlint_1.7.12_linux_amd64.tar.gz' --dir "$RUNNER_TEMP"
+          gh attestation verify "$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz" \
+            --repo rhysd/actionlint
+          tar -xzf "$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz" \
+            -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -ignore 'SC2016'
+
+      - name: Audit workflows with zizmor
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+          online-audits: false
+          min-severity: high
 
   publish:
     name: Build and verify ${{ matrix.profile }}
@@ -54,7 +77,7 @@ jobs:
       matrix:
         profile: [strict, usb, nested]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -67,15 +90,15 @@ jobs:
           echo "candidate=$image:candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
 
       - name: Set up arm64 emulation
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: arm64
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Authenticate to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -85,7 +108,7 @@ jobs:
       # digest. The unique candidate tag is not a release tag.
       - name: Build and push candidate image
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./Containerfile.${{ matrix.profile }}
@@ -98,7 +121,7 @@ jobs:
           provenance: mode=min
 
       - name: Install Trivy
-        uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
+        uses: aquasecurity/setup-trivy@a0e5e8d8f5936915ac0292775f38a64d6fabe7a7
         with:
           version: v0.76.2
 
@@ -134,7 +157,7 @@ jobs:
 
       - name: Upload Trivy reports (even if scan fails)
         if: always() && steps.build.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: trivy-${{ matrix.profile }}
           path: reports/*.json
@@ -143,7 +166,7 @@ jobs:
 
       - name: Install Syft for per-architecture SPDX SBOMs
         id: syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
 
       - name: Generate full SBOMs and digest manifest
         shell: bash
@@ -154,7 +177,7 @@ jobs:
         run: bash scripts/generate-sboms.sh
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sbom-${{ matrix.profile }}
           path: sboms/*.json
@@ -162,7 +185,7 @@ jobs:
           retention-days: 30
 
       - name: Attest build provenance in GitHub and GHCR
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -172,7 +195,7 @@ jobs:
       # Large SBOMs cannot be used as sbom-path predicates (16 MiB limit).
       # Here the full files are the signed subjects, not oversized predicates.
       - name: Attest full SPDX SBOM files
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: |
             sboms/amd64.spdx.json
@@ -181,7 +204,7 @@ jobs:
       # The small custom predicate binds both full SBOM hashes to the exact
       # multi-architecture image digest in GitHub and the OCI registry.
       - name: Attest full SBOM digests against image
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -191,7 +214,7 @@ jobs:
           create-storage-record: false
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.1.0
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       - name: Keyless-sign and verify exact multi-arch digest
         shell: bash
@@ -227,7 +250,7 @@ jobs:
           printf '%s\t%s\n' "$IMAGE" "$DIGEST" > 'digests/${{ matrix.profile }}.txt'
 
       - name: Upload published digest
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: digest-${{ matrix.profile }}
           path: digests/${{ matrix.profile }}.txt
@@ -242,7 +265,7 @@ jobs:
       contents: read
     steps:
       - name: Download digest records
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: digest-*
           merge-multiple: true

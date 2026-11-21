@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+name: PR image build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Containerfile.*'
+      - '.dockerignore'
+      - 'scripts/install-cli-toolchain.sh'
+      - '.github/workflows/pr-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build strict image (linux/amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Build without publishing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          file: ./Containerfile.strict
+          platforms: linux/amd64
+          pull: true
+          push: false

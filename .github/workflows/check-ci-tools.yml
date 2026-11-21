@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+name: Check pinned CI tool releases
+
+on:
+  schedule:
+    - cron: '19 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Check Trivy and actionlint releases
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-ci-tool-updates.py

@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: MIT
+name: Prune old GHCR image versions
+
+on:
+  schedule:
+    - cron: '47 9 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview deletions without modifying GHCR
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safecli-ghcr-retention
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Retain the latest image and seven days of history
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GHCR_OWNER_TYPE: ${{ github.event.repository.owner.type }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        shell: bash
+        run: |
+          if [[ "$DRY_RUN" == 'true' ]]; then
+            python3 scripts/prune-ghcr.py
+          else
+            python3 scripts/prune-ghcr.py --delete
+          fi
